@@ -7,22 +7,31 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import string
 import random
+import os
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Download required NLTK data
-nltk.download('punkt')
-nltk.download('punkt_tab')
-nltk.download('stopwords')
-nltk.download('wordnet')
+# Set NLTK data path
+nltk.data.path.append(os.path.join(os.getcwd(), 'nltk_data'))
+try:
+    nltk.data.find('tokenizers/punkt')
+    nltk.data.find('tokenizers/punkt_tab')
+    nltk.data.find('corpora/stopwords')
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    print("Error: NLTK data not found. Attempting to download.")
+    nltk.download('punkt', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
+    nltk.download('punkt_tab', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
+    nltk.download('stopwords', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
+    nltk.download('wordnet', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
 
-# Load the CSV file
+# Load the Excel file
 try:
     df = pd.read_excel('archive/data.xlsx')
 except FileNotFoundError:
-    print("Error: gymdata.csv not found. Please ensure the file is in the same directory.")
-    exit(1)
+    print("Error: data.xlsx not found in archive/")
+    df = None
 
 # Preprocessing function
 stop_words = set(stopwords.words('english'))
@@ -31,75 +40,91 @@ lemmatizer = WordNetLemmatizer()
 def preprocess_text(text):
     if pd.isna(text) or not isinstance(text, str):
         return []
-    tokens = word_tokenize(text.lower())
-    tokens = [token for token in tokens if token not in string.punctuation]
-    tokens = [token for token in tokens if token not in stop_words]
-    tokens = [lemmatizer.lemmatize(token) for token in tokens]
-    return tokens
+    try:
+        tokens = word_tokenize(text.lower())
+        tokens = [token for token in tokens if token not in string.punctuation]
+        tokens = [token for token in tokens if token not in stop_words]
+        tokens = [lemmatizer.lemmatize(token) for token in tokens]
+        return tokens
+    except Exception as e:
+        print(f"Error in preprocess_text: {e}")
+        return []
 
 # Calculate similarity between user input and exercise data
 def get_best_matches(user_input, top_n=3):
-    user_tokens = preprocess_text(user_input)
-    if not user_tokens:
+    try:
+        user_tokens = preprocess_text(user_input)
+        if not user_tokens:
+            return None
+        similarities = []
+        for idx, row in df.iterrows():
+            title_tokens = preprocess_text(row['Exercise_Name'])
+            combined_tokens = title_tokens
+            common_tokens = set(user_tokens) & set(combined_tokens)
+            union_tokens = set(user_tokens) | set(combined_tokens)
+            similarity = len(common_tokens) / len(union_tokens) if union_tokens else 0
+            similarities.append((similarity, idx))
+        similarities.sort(reverse=True)
+        top_matches = similarities[:top_n]
+        if top_matches[0][0] < 0.05:
+            return None
+        return [df.iloc[idx] for _, idx in top_matches]
+    except Exception as e:
+        print(f"Error in get_best_matches: {e}")
         return None
-    
-    similarities = []
-    for idx, row in df.iterrows():
-        title_tokens = preprocess_text(row['Exercise_Name'])
-        muscle_tokens = preprocess_text(row['muscle_gp'])
-        combined_tokens = title_tokens + muscle_tokens
-        
-        # Calculate Jaccard similarity
-        common_tokens = set(user_tokens) & set(combined_tokens)
-        union_tokens = set(user_tokens) | set(combined_tokens)
-        similarity = len(common_tokens) / len(union_tokens) if union_tokens else 0
-        
-        similarities.append((similarity, idx))
-    
-    # Sort by similarity and get top matches
-    similarities.sort(reverse=True)
-    top_matches = similarities[:top_n]
-    if top_matches[0][0] < 0.1:  # Threshold for relevance
-        return None
-    
-    return [df.iloc[idx] for _, idx in top_matches]
 
 # Format exercise details for response
 def format_exercise(row):
-    response = f"<strong>{row['Exercise_Name']}</strong><br>"
-    response += f"- <strong>Muscle Group</strong>: {row['muscle_gp']}<br>"
-    response += f"- <strong>Equipment</strong>: {row['Equipment']}<br>"
-    response += f"- <strong>Rating</strong>: {row['Rating']}<br>"
-    response += f"- <strong>Details</strong>: <a href='{row['Description_URL']}'>More Details</a>"
-    return response
+    try:
+        response = f"<strong>{row['Exercise_Name']}</strong><br>"
+        response += f"- <strong>Muscle Group</strong>: {row['muscle_gp']}<br>"
+        response += f"- <strong>Equipment</strong>: {row['Equipment']}<br>"
+        response += f"- <strong>Rating</strong>: {row['Rating']}<br>"
+        return response
+    except Exception as e:
+        print(f"Error in format_exercise: {e}")
+        return "Error formatting exercise data."
 
 # Chatbot response function
 def get_response(user_input):
     if not user_input.strip():
         return "Please enter a query, like 'ab exercises' or 'beginner core'!"
-    
-    matches = get_best_matches(user_input)
-    if matches:
-        response = "Here are some exercises that match your query:<br><br>"
-        for match in matches:
-            response += format_exercise(match) + "<br>"
-        return response
-    else:
-        return random.choice([
-            "I couldn't find a match. Try specifying a muscle group (e.g., abs), equipment (e.g., kettlebell), or level (e.g., beginner)!",
-            "No exercises found. Could you clarify, like 'ab workouts' or 'barbell exercises'?",
-            "Hmm, try something like 'core exercises for beginners' or 'kettlebell abs'!"
-        ])
+    if df is None:
+        return "Sorry, the exercise database is unavailable. Please try again later."
+    try:
+        matches = get_best_matches(user_input)
+        if matches:
+            response = "Here are some exercises that match your query:<br><br>"
+            for match in matches:
+                response += format_exercise(match) + "<br>"
+            return response
+        else:
+            return random.choice([
+                "I couldn't find a match. Try specifying a muscle group (e.g., abs), equipment (e.g., kettlebell), or level (e.g., beginner)!",
+                "No exercises found. Could you clarify, like 'ab workouts' or 'barbell exercises'?",
+                "Hmm, try something like 'core exercises for beginners' or 'kettlebell abs'!"
+            ])
+    except Exception as e:
+        print(f"Error in get_response: {e}")
+        return "An error occurred. Please try again with a different query."
 
 # Flask routes
 @app.route('/', methods=['GET', 'POST'])
 def index():
     response = ""
     user_input = ""
-    if request.method == 'POST':
-        user_input = request.form.get('query', '')
-        response = get_response(user_input)
+    try:
+        if request.method == 'POST':
+            user_input = request.form.get('query', '')
+            response = get_response(user_input)
+    except Exception as e:
+        print(f"Error in index route: {e}")
+        response = "An error occurred. Please try again."
     return render_template('index.html', response=response, user_input=user_input)
 
 if __name__ == '__main__':
     app.run(debug=True)
+else:
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
