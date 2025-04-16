@@ -1,0 +1,26 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akkyaaa's Built</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Akkyaaa's GYMBOT</h1>
+        <p>Ask about workouts (e.g., 'ab exercises', 'beginner core', 'kettlebell abs').</p>
+        <form method="POST" action="/">
+            <input type="text" name="query" placeholder="Enter your workout query" value="{{ user_input }}" autofocus>
+            <button type="submit">Ask GymBot</button>
+        </form>
+        <div class="response">
+            {% if response %}
+                <h2>Response:</h2>
+                <p>{{ response | safe }}</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
