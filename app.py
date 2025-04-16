@@ -19,7 +19,7 @@ nltk.download('wordnet')
 
 # Load the CSV file
 try:
-    df = pd.read_excel('archive/data.xlsx')
+    df = pd.read_excel('data.xlsx')
 except FileNotFoundError:
     print("Error: gymdata.csv not found. Please ensure the file is in the same directory.")
     exit(1)
