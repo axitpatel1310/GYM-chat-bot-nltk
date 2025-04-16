@@ -25,15 +25,7 @@ try:
     nltk.data.find('corpora/wordnet')
     logger.info("NLTK data found successfully.")
 except LookupError as e:
-    logger.error(f"NLTK data not found: {e}. Attempting to download.")
-    try:
-        nltk.download('punkt', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
-        nltk.download('punkt_tab', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
-        nltk.download('stopwords', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
-        nltk.download('wordnet', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
-        logger.info("NLTK data downloaded.")
-    except Exception as download_error:
-        logger.error(f"Failed to download NLTK data: {download_error}")
+    logger.error(f"NLTK data not found: {e}")
 
 # Load the Excel file
 df = None
@@ -126,14 +118,12 @@ def get_response(user_input):
 # Flask routes
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    response = ""
+    response = "Welcome to GymBot! Enter a query above to get started."
     user_input = ""
     try:
         if request.method == 'POST':
             user_input = request.form.get('query', '')
             response = get_response(user_input)
-        else:
-            response = "Welcome to GymBot! Enter a query above to get started."
     except Exception as e:
         logger.error(f"Error in index route: {e}")
         response = "An error occurred. Please try again."
