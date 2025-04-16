@@ -116,13 +116,13 @@ def get_response(user_input):
             return response
         else:
             return random.choice([
-            "I couldn't find a match. Try specifying a muscle group (e.g., abs), equipment (e.g., kettlebell), or level (e.g., beginner)!",
-            "No exercises found. Could you clarify, like 'ab workouts' or 'barbell exercises'?",
+                "I couldn't find a match. Try specifying a muscle group (e.g., abs), equipment (e.g., kettlebell), or level (e.g., beginner)!",
+                "No exercises found. Could you clarify, like 'ab workouts' or 'barbell exercises'?",
                 "Hmm, try something like 'core exercises for beginners' or 'kettlebell abs'!"
-        ])
+            ])
     except Exception as e:
         logger.error(f"Error in get_response: {e}")
-    return "An error occurred. Please try again with a different query."
+        return "An error occurred. Please try again with a different query."
 
 # Flask routes
 @app.route('/', methods=['GET', 'POST'])
@@ -139,5 +139,7 @@ def index():
     return render_template('index.html', response=response, user_input=user_input)
 
 if __name__ == '__main__':
+    app.run(debug=True)
+else:
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port)
