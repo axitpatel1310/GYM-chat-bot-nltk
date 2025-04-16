@@ -29,16 +29,20 @@ except LookupError as e:
     logger.warning("Using fallback tokenization.")
 
 # Load the Excel file
+import kagglehub
+from kagglehub import KaggleDatasetAdapter
 df = None
 try:
-    df = pd.read_excel('data.xlsx')
-    logger.info("Excel file loaded successfully.")
-    logger.info(f"Columns in data.xlsx: {list(df.columns)}")
-except FileNotFoundError:
-    logger.error("data.xlsx not found.")
+    file_path = "Gym_exercise_dataset.csv"  # Confirm name
+    df = kagglehub.load_dataset(
+        KaggleDatasetAdapter.PANDAS,
+        "ambarishdeb/gym-exercises-dataset",
+        file_path
+    )
+    logger.info("Kaggle dataset loaded successfully.")
+    logger.info(f"Columns in dataset: {list(df.columns)}")
 except Exception as e:
-    logger.error(f"Failed to load data.xlsx: {e}")
-
+    logger.error(f"Failed to load Kaggle dataset: {e}")
 # Preprocessing function
 try:
     stop_words = set(stopwords.words('english')) if 'stopwords' in nltk.data.path else set()
