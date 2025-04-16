@@ -30,7 +30,7 @@ except LookupError as e:
 
 # Load the Excel file
 df = None
-file_path = 'archive/data.xlsx'
+file_path = 'data.xlsx'
 try:
     if os.path.exists(file_path):
         df = pd.read_excel(file_path)
