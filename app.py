@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request
 import pandas as pd
 import nltk
@@ -9,6 +8,8 @@ import string
 import random
 import os
 import logging
+import kagglehub
+from kagglehub import KaggleDatasetAdapter
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -28,18 +29,19 @@ try:
 except LookupError as e:
     logger.error(f"NLTK data not found: {e}")
 
-# Load the Excel file
+# Load the Kaggle dataset
 df = None
-file_path = 'archive/data.xlsx'
 try:
-    if os.path.exists(file_path):
-        df = pd.read_excel(file_path)
-        logger.info("Excel file loaded successfully.")
-        logger.info(f"Columns in data.xlsx: {list(df.columns)}")
-    else:
-        logger.error(f"Excel file not found at {file_path}")
+    file_path = "Gym_exercise_dataset.csv"  # Adjust based on dataset
+    df = kagglehub.load_dataset(
+        KaggleDatasetAdapter.PANDAS,
+        "ambarishdeb/gym-exercises-dataset",
+        file_path
+    )
+    logger.info("Kaggle dataset loaded successfully.")
+    logger.info(f"Columns in dataset: {list(df.columns)}")
 except Exception as e:
-    logger.error(f"Failed to load data.xlsx: {e}")
+    logger.error(f"Failed to load Kaggle dataset: {e}")
 
 # Preprocessing function
 try:
