@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request
 import pandas as pd
 import nltk
@@ -8,9 +7,14 @@ from nltk.stem import WordNetLemmatizer
 import string
 import random
 import os
+import logging
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Set NLTK data path
 nltk.data.path.append(os.path.join(os.getcwd(), 'nltk_data'))
@@ -19,19 +23,28 @@ try:
     nltk.data.find('tokenizers/punkt_tab')
     nltk.data.find('corpora/stopwords')
     nltk.data.find('corpora/wordnet')
-except LookupError:
-    print("Error: NLTK data not found. Attempting to download.")
-    nltk.download('punkt', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
-    nltk.download('punkt_tab', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
-    nltk.download('stopwords', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
-    nltk.download('wordnet', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
+    logger.info("NLTK data found successfully.")
+except LookupError as e:
+    logger.error(f"NLTK data not found: {e}. Attempting to download.")
+    try:
+        nltk.download('punkt', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
+        nltk.download('punkt_tab', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
+        nltk.download('stopwords', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
+        nltk.download('wordnet', download_dir=os.path.join(os.getcwd(), 'nltk_data'), quiet=True)
+        logger.info("NLTK data downloaded.")
+    except Exception as download_error:
+        logger.error(f"Failed to download NLTK data: {download_error}")
 
 # Load the Excel file
+df = None
 try:
     df = pd.read_excel('archive/data.xlsx')
+    logger.info("Excel file loaded successfully.")
+    logger.info(f"Columns in data.xlsx: {list(df.columns)}")
 except FileNotFoundError:
-    print("Error: data.xlsx not found in archive/")
-    df = None
+    logger.error("data.xlsx not found in archive/")
+except Exception as e:
+    logger.error(f"Failed to load data.xlsx: {e}")
 
 # Preprocessing function
 stop_words = set(stopwords.words('english'))
@@ -47,18 +60,20 @@ def preprocess_text(text):
         tokens = [lemmatizer.lemmatize(token) for token in tokens]
         return tokens
     except Exception as e:
-        print(f"Error in preprocess_text: {e}")
+        logger.error(f"Error in preprocess_text: {e}")
         return []
 
 # Calculate similarity between user input and exercise data
 def get_best_matches(user_input, top_n=3):
+    if df is None:
+        return None
     try:
         user_tokens = preprocess_text(user_input)
         if not user_tokens:
             return None
         similarities = []
         for idx, row in df.iterrows():
-            title_tokens = preprocess_text(row['Exercise_Name'])
+            title_tokens = preprocess_text(row.get('Exercise_Name', ''))
             combined_tokens = title_tokens
             common_tokens = set(user_tokens) & set(combined_tokens)
             union_tokens = set(user_tokens) | set(combined_tokens)
@@ -66,23 +81,23 @@ def get_best_matches(user_input, top_n=3):
             similarities.append((similarity, idx))
         similarities.sort(reverse=True)
         top_matches = similarities[:top_n]
-        if top_matches[0][0] < 0.05:
+        if top_matches and top_matches[0][0] < 0.05:
             return None
         return [df.iloc[idx] for _, idx in top_matches]
     except Exception as e:
-        print(f"Error in get_best_matches: {e}")
+        logger.error(f"Error in get_best_matches: {e}")
         return None
 
 # Format exercise details for response
 def format_exercise(row):
     try:
-        response = f"<strong>{row['Exercise_Name']}</strong><br>"
-        response += f"- <strong>Muscle Group</strong>: {row['muscle_gp']}<br>"
-        response += f"- <strong>Equipment</strong>: {row['Equipment']}<br>"
-        response += f"- <strong>Rating</strong>: {row['Rating']}<br>"
+        response = f"<strong>{row.get('Exercise_Name', 'Unknown Exercise')}</strong><br>"
+        response += f"- <strong>Muscle Group</strong>: {row.get('muscle_gp', 'N/A')}<br>"
+        response += f"- <strong>Equipment</strong>: {row.get('Equipment', 'N/A')}<br>"
+        response += f"- <strong>Rating</strong>: {row.get('Rating', 'N/A')}<br>"
         return response
     except Exception as e:
-        print(f"Error in format_exercise: {e}")
+        logger.error(f"Error in format_exercise: {e}")
         return "Error formatting exercise data."
 
 # Chatbot response function
@@ -105,7 +120,7 @@ def get_response(user_input):
                 "Hmm, try something like 'core exercises for beginners' or 'kettlebell abs'!"
             ])
     except Exception as e:
-        print(f"Error in get_response: {e}")
+        logger.error(f"Error in get_response: {e}")
         return "An error occurred. Please try again with a different query."
 
 # Flask routes
@@ -117,14 +132,15 @@ def index():
         if request.method == 'POST':
             user_input = request.form.get('query', '')
             response = get_response(user_input)
+        else:
+            response = "Welcome to GymBot! Enter a query above to get started."
     except Exception as e:
-        print(f"Error in index route: {e}")
+        logger.error(f"Error in index route: {e}")
         response = "An error occurred. Please try again."
     return render_template('index.html', response=response, user_input=user_input)
 
 if __name__ == '__main__':
     app.run(debug=True)
 else:
-    import os
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
