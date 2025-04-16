@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, request
 import pandas as pd
 import nltk
@@ -29,18 +30,25 @@ except LookupError as e:
 
 # Load the Excel file
 df = None
+file_path = 'archive/data.xlsx'
 try:
-    df = pd.read_excel('archive/data.xlsx')
-    logger.info("Excel file loaded successfully.")
-    logger.info(f"Columns in data.xlsx: {list(df.columns)}")
-except FileNotFoundError:
-    logger.error("data.xlsx not found in archive/")
+    if os.path.exists(file_path):
+        df = pd.read_excel(file_path)
+        logger.info("Excel file loaded successfully.")
+        logger.info(f"Columns in data.xlsx: {list(df.columns)}")
+    else:
+        logger.error(f"Excel file not found at {file_path}")
 except Exception as e:
     logger.error(f"Failed to load data.xlsx: {e}")
 
 # Preprocessing function
-stop_words = set(stopwords.words('english'))
-lemmatizer = WordNetLemmatizer()
+try:
+    stop_words = set(stopwords.words('english'))
+    lemmatizer = WordNetLemmatizer()
+except Exception as e:
+    logger.error(f"Error initializing NLTK resources: {e}")
+    stop_words = set()
+    lemmatizer = None
 
 def preprocess_text(text):
     if pd.isna(text) or not isinstance(text, str):
@@ -49,7 +57,7 @@ def preprocess_text(text):
         tokens = word_tokenize(text.lower())
         tokens = [token for token in tokens if token not in string.punctuation]
         tokens = [token for token in tokens if token not in stop_words]
-        tokens = [lemmatizer.lemmatize(token) for token in tokens]
+        tokens = [lemmatizer.lemmatize(token) for token in tokens if lemmatizer]
         return tokens
     except Exception as e:
         logger.error(f"Error in preprocess_text: {e}")
@@ -58,6 +66,7 @@ def preprocess_text(text):
 # Calculate similarity between user input and exercise data
 def get_best_matches(user_input, top_n=3):
     if df is None:
+        logger.warning("No database available for matching.")
         return None
     try:
         user_tokens = preprocess_text(user_input)
