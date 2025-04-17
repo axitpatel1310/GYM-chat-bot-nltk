@@ -3,3 +3,5 @@ pandas==2.2.2
 nltk==3.8.1
 kagglehub==0.3.3
 gunicorn==21.2.0
+openpyxl
+vercel-python-wsgi
