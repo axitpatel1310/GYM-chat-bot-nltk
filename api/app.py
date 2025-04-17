@@ -16,8 +16,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Set NLTK data path
-nltk.data.path.append(os.path.join(os.getcwd(), 'nltk_data'))
+nltk.data.path.append(os.path.join(os.path.dirname(__file__), '../nltk_data'))
 try:
     nltk.data.find('tokenizers/punkt')
     nltk.data.find('tokenizers/punkt_tab')
@@ -29,21 +28,8 @@ except LookupError as e:
     logger.warning("Using fallback tokenization.")
 
 # Load the Excel file
-import kagglehub
-from kagglehub import KaggleDatasetAdapter
-df = None
-try:
-    file_path = "Gym_exercise_dataset.csv"  # Confirm name
-    df = kagglehub.load_dataset(
-        KaggleDatasetAdapter.PANDAS,
-        "ambarishdeb/gym-exercises-dataset",
-        file_path
-    )
-    logger.info("Kaggle dataset loaded successfully.")
-    logger.info(f"Columns in dataset: {list(df.columns)}")
-except Exception as e:
-    logger.error(f"Failed to load Kaggle dataset: {e}")
-# Preprocessing function
+df = pd.read_excel("./data.xlsx")
+
 try:
     stop_words = set(stopwords.words('english')) if 'stopwords' in nltk.data.path else set()
     lemmatizer = WordNetLemmatizer() if 'wordnet' in nltk.data.path else None
